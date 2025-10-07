@@ -1,14 +1,22 @@
-import requests
-from bs4 import BeautifulSoup
-from urllib.parse import urljoin, urlparse
+import argparse
+import mimetypes
 import os
 import time
-import mimetypes
-import argparse
+from typing import Optional
+from urllib.parse import urljoin, urlparse
+
+import requests  # type: ignore[import-untyped]
+from bs4 import BeautifulSoup
+from bs4.element import Tag
 
 
 class WebScraper:
-    def __init__(self, base_url, output_dir="downloaded_files", delay=1):
+    def __init__(
+        self,
+        base_url: str,
+        output_dir: str = "downloaded_files",
+        delay: float = 1,
+    ):
         """
         Initialize the web scraper with a base URL and output directory.
 
@@ -21,32 +29,63 @@ class WebScraper:
         self.output_dir = output_dir
         self.delay = delay
         self.domain = urlparse(base_url).netloc
-        self.visited_urls = set()
-        self.queue = [base_url]
+        self.visited_urls: set[str] = set()
+        self.queue: list[str] = [base_url]
 
         # Create output directory if it doesn't exist
         if not os.path.exists(output_dir):
             os.makedirs(output_dir)
 
-    def is_valid_url(self, url):
+    def is_valid_url(self, url: str) -> bool:
         """Check if URL belongs to the same domain and hasn't been visited yet."""
         parsed_url = urlparse(url)
-        return (parsed_url.netloc == self.domain or not parsed_url.netloc) and url not in self.visited_urls
+        return (
+            parsed_url.netloc == self.domain or not parsed_url.netloc
+        ) and url not in self.visited_urls
 
-    def is_text_file(self, url):
+    def is_text_file(self, url: str) -> bool:
         """Check if the URL points to a text file (excluding HTML)."""
         # Get file extension from URL
         path = urlparse(url).path
         ext = os.path.splitext(path)[1].lower()
 
         # Common text file extensions
-        text_extensions = ['.txt', '.md', '.csv', '.json', '.xml', '.log', '.ini', '.cfg',
-                           '.yml', '.yaml', '.toml', '.rtf', '.conf', '.config', '.py',
-                           '.js', '.css', '.c', '.cpp', '.h', '.java', '.rb', '.pl', '.php',
-                           '.sh', '.bat', '.ps1', '.sql', '.r', '.tex', '.bib']
+        text_extensions = [
+            ".txt",
+            ".md",
+            ".csv",
+            ".json",
+            ".xml",
+            ".log",
+            ".ini",
+            ".cfg",
+            ".yml",
+            ".yaml",
+            ".toml",
+            ".rtf",
+            ".conf",
+            ".config",
+            ".py",
+            ".js",
+            ".css",
+            ".c",
+            ".cpp",
+            ".h",
+            ".java",
+            ".rb",
+            ".pl",
+            ".php",
+            ".sh",
+            ".bat",
+            ".ps1",
+            ".sql",
+            ".r",
+            ".tex",
+            ".bib",
+        ]
 
         # Excluded extensions (HTML files)
-        excluded_extensions = ['.html', '.htm', '.xhtml', '.shtml']
+        excluded_extensions = [".html", ".htm", ".xhtml", ".shtml"]
 
         if ext in text_extensions and ext not in excluded_extensions:
             return True
@@ -55,18 +94,20 @@ class WebScraper:
         if not ext:
             try:
                 response = requests.head(url, allow_redirects=True, timeout=5)
-                content_type = response.headers.get('Content-Type', '')
+                content_type = response.headers.get("Content-Type", "")
 
                 # Check if it's a text file but not HTML
-                return ('text/' in content_type.lower() and
-                        'html' not in content_type.lower() and
-                        'xhtml' not in content_type.lower())
+                return (
+                    "text/" in content_type.lower()
+                    and "html" not in content_type.lower()
+                    and "xhtml" not in content_type.lower()
+                )
             except Exception:
                 return False
 
         return False
 
-    def download_file(self, url):
+    def download_file(self, url: str) -> bool:
         """Download a file from the given URL."""
         try:
             response = requests.get(url, timeout=10)
@@ -75,26 +116,30 @@ class WebScraper:
                 filename = os.path.basename(urlparse(url).path)
 
                 # If filename is empty or doesn't have an extension, create one
-                if not filename or '.' not in filename:
-                    content_type = response.headers.get('Content-Type', '').split(';')[0]
-                    extension = mimetypes.guess_extension(content_type) or '.txt'
+                if not filename or "." not in filename:
+                    content_type = response.headers.get("Content-Type", "").split(";")[
+                        0
+                    ]
+                    extension = mimetypes.guess_extension(content_type) or ".txt"
                     filename = f"file_{len(self.visited_urls)}{extension}"
 
                 # Save the file
                 file_path = os.path.join(self.output_dir, filename)
-                with open(file_path, 'wb') as f:
+                with open(file_path, "wb") as f:
                     f.write(response.content)
 
                 print(f"Downloaded: {filename} from {url}")
                 return True
             else:
-                print(f"Failed to download: {url} (Status code: {response.status_code})")
+                print(
+                    f"Failed to download: {url} (Status code: {response.status_code})"
+                )
                 return False
         except Exception as e:
             print(f"Error downloading {url}: {str(e)}")
             return False
 
-    def scrape(self, max_files=None):
+    def scrape(self, max_files: Optional[int] = None) -> None:
         """
         Start the scraping process.
 
@@ -128,11 +173,15 @@ class WebScraper:
                     continue
 
                 # Parse HTML content
-                soup = BeautifulSoup(response.text, 'html.parser')
+                soup = BeautifulSoup(response.text, "html.parser")
 
                 # Find all links
-                for link in soup.find_all('a', href=True):
-                    href = link['href']
+                for link in soup.find_all("a", href=True):
+                    if not isinstance(link, Tag):
+                        continue
+                    href = link.get("href")
+                    if not isinstance(href, str):
+                        continue
                     absolute_url = urljoin(current_url, href)
 
                     # Only add URLs from the same domain that haven't been visited
@@ -148,12 +197,31 @@ class WebScraper:
         print(f"\nScraping complete. Downloaded {files_downloaded} files.")
 
 
-def main():
-    parser = argparse.ArgumentParser(description='Scrape and download text files from a website.')
-    parser.add_argument('url', help='The base URL to start scraping from')
-    parser.add_argument('--output', '-o', default='downloaded_files', help='Output directory for downloaded files')
-    parser.add_argument('--delay', '-d', type=float, default=1.0, help='Delay between requests in seconds')
-    parser.add_argument('--max', '-m', type=int, default=None, help='Maximum number of files to download')
+def main() -> None:
+    parser = argparse.ArgumentParser(
+        description="Scrape and download text files from a website."
+    )
+    parser.add_argument("url", help="The base URL to start scraping from")
+    parser.add_argument(
+        "--output",
+        "-o",
+        default="downloaded_files",
+        help="Output directory for downloaded files",
+    )
+    parser.add_argument(
+        "--delay",
+        "-d",
+        type=float,
+        default=1.0,
+        help="Delay between requests in seconds",
+    )
+    parser.add_argument(
+        "--max",
+        "-m",
+        type=int,
+        default=None,
+        help="Maximum number of files to download",
+    )
 
     args = parser.parse_args()
 
@@ -161,5 +229,5 @@ def main():
     scraper.scrape(max_files=args.max)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()
