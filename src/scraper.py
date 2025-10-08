@@ -44,11 +44,16 @@ class Scraper:
                 self.failed_urls.append(url)
 
     def save_result_to_json(self, filename: str) -> None:
+        output_dir = Path(self.output_path)
+        output_dir.mkdir(parents=True, exist_ok=True)
+
         data = [
             {"page_content": doc.page_content, "metadata": doc.metadata}
             for doc in self.documents
         ]
-        with open(Path(self.output_path) / filename, "w", encoding="utf-8") as f:
+
+        output_file = output_dir / filename
+        with open(output_file, "w", encoding="utf-8") as f:
             json.dump(data, f, ensure_ascii=False, indent=2)
 
     def save_docs_as_md(self) -> None:
@@ -142,8 +147,7 @@ class Scraper:
                 content_blocks = self._extract_fallback_content(soup)
 
             if not content_blocks:
-                print("No content found on the page.")
-                return None
+                raise Exception("No content found on the page.")
 
             # Convert to markdown with deduplication
             markdown_content = self._html_to_markdown(title, content_blocks, url)
@@ -154,9 +158,9 @@ class Scraper:
             self.documents.append(document)
 
             return document
+
         except Exception as e:
-            print(f"Error processing HTML content: {e}")
-            return None
+            raise Exception(f"Error processing HTML content: {e}")
 
     def _clean_html(self, soup: BeautifulSoup) -> None:
         """Remove unnecessary elements from HTML."""
