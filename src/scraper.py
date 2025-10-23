@@ -53,8 +53,8 @@ class Scraper:
         ]
 
         output_file = output_dir / filename
-        with open(output_file, "w", encoding="utf-8") as f:
-            json.dump(data, f, ensure_ascii=False, indent=2)
+        with open(output_file, "w") as f:
+            json.dump(data, f)
 
     def save_docs_as_md(self) -> None:
         for doc in self.documents:
