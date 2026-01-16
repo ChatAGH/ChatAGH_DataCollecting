@@ -18,7 +18,7 @@ from chat_agh.vector_store.mongodb import MongoDBVectorStore
 # -----------------------
 # CONFIG
 # -----------------------
-URLS_PATH = Path("/Users/wnowogorski/PycharmProjects/ChatAGH_DataCollecting/clusters/")
+URLS_PATH = Path("/Users/wnowogorski/PycharmProjects/ChatAGH_DataCollecting/src/clusters/")
 BASE_OUT_DIR = Path("./runs")  # change if you want
 
 CHUNK_SIZE = 1024
